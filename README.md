@@ -62,7 +62,8 @@ erDiagram
     COLOUR |o--o{ OPERATION : "colour of RECOLOUR"
     PATTERN |o--o{ OPERATION : "print of AOP"
     VARIANT ||--o{ RESULT_IMAGE : delivers
-    TICKET ||--o{ STATUS_EVENT : logs
+    TICKET ||--o{ AUDIT_EVENT : "is logged in"
+    USER ||--o{ AUDIT_EVENT : performs
 ```
 
 ### Entities
@@ -82,7 +83,7 @@ erDiagram
 | `sentAt`, `receivedAt`, `completedAt` | datetime \| null | drive the partner receipt view |
 | `approvedAt`, `approvedBy` | | set when the ticket is approved |
 | `rejectionReason` | string \| null | what the partner must correct |
-| `createdBy`, `createdAt` | | |
+| `createdBy`, `createdAt`, `updatedBy`, `updatedAt` | | the stamp of the latest change, for quick display |
 
 **TicketFile**: the four files a ticket holds.
 
@@ -91,7 +92,7 @@ erDiagram
 | `id`, `ticketId` | string | |
 | `slot` | `FRONT` \| `BACK` \| `STYLE` \| `REFERENCE` | |
 | `photoId` | string | the file name without extension, e.g. `15377522_5081887_007` |
-| `file` | string | path to the stored file |
+| `file` | string | path to the uploaded file in storage |
 
 `FRONT`, `BACK` and `STYLE` correspond to the photos ending in `_001`, `_002` and `_007`. `REFERENCE` is the print reference (`Block Libre`, `DOTS CLOUD DANCER`) and is required when any variant has an `AOP` operation.
 
@@ -131,9 +132,9 @@ Examples: Granita (solid) is `[RECOLOUR(Granita)]`; Fuchsia Fedora with Block Li
 
 **Partner**: an external retouching partner (mock data): `id`, `name`, plus `receiptDelayMs` and `turnaroundMs` for the simulation.
 
-**User**: `id`, `name`, `role` (`OPERATOR` or `MANAGER`). There is no login; the role is chosen in the UI and sent with each request.
+**User**: `id`, `name`, `role` (`OPERATOR` or `MANAGER`). There is no login: the acting user is chosen in the UI and sent with each request, and the backend takes the role from that user. This simulates identity; it is not security.
 
-**StatusEvent**: an append-only history of status changes (`ticketId`, `from`, `to`, `actorId`, `at`, `comment`).
+**AuditEvent**: an append-only log of every change to a ticket, so each change is stamped with what changed, who did it and when: `ticketId`, `action` (`CREATED`, `UPDATED`, `FILE_REPLACED`, `SENT`, `APPROVED`, `REJECTED`, …), `actorId`, `at`, `changes` (a list of `{ field, from, to }`) and an optional `comment`. A status change is one kind of event. The latest change is also stamped on the ticket (`updatedBy`, `updatedAt`).
 
 Validation rules worth noting: a ticket needs at least one variant, and a variant at least one operation; a variant has at most one operation of each type; each operation is validated against its own schema (an `AOP` needs a pattern, a `RESIZE` needs a width and a height); and an `AOP` operation requires a `REFERENCE` file on the ticket. Which files a ticket needs follows from its operations.
 
@@ -160,7 +161,7 @@ A ticket can contain several variants (Ticket 2 asks for three versions of the g
 What follows from that:
 
 - Status, partner receipt and approval all live on the **ticket**. Variants are the content of a ticket and have no status of their own.
-- **Reject** returns the whole ticket to the queue with a comment that says what must be corrected. The ticket can then be sent to the partner again, which starts a new `round`; the new delivery replaces the previous results, and the earlier rounds stay visible in the status history.
+- **Reject** returns the whole ticket to the queue with a comment that says what must be corrected. The ticket can then be sent to the partner again, which starts a new `round`; the new delivery replaces the previous results, and the earlier rounds stay visible in the audit log.
 - **Approve** sets the ticket's status to `APPROVED`. The **Approved Library** lists the partners' final, approved results: the result images of the latest round of every approved ticket, each referring back to its ticket (article number, reference number and a link). It is computed from the approved tickets, so nothing is copied.
 - Approving each variant separately would be a natural extension: the status fields would move from the ticket to the variant.
 
@@ -173,6 +174,9 @@ A variant is made of operations, and each operation defines its own rules in one
 - The registry sits in the domain layer, with no Express and no I/O, so each operation can be tested on its own.
 
 ### Other decisions and assumptions
+
+- **Files are uploaded.** The create-ticket form uploads the four files together with the ticket data in one request. A file can be replaced while the ticket is `PENDING`, and the replacement is recorded in the audit log. The photo ID is taken from the file name, and the type and size of each file are validated.
+- **Every change is stamped.** Each use case records an audit event with the acting user, so nothing changes a ticket without a trace.
 
 - The brief names Pantone colours but gives **no colour codes**, so no hex values are invented.
 - The brief does not say what `reference` (e.g. `5081878`) stands for. It is stored as an opaque reference.

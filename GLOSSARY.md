@@ -55,6 +55,7 @@ The project is a single bounded context: **the recolour workflow**, from a ticke
 | **Ticket queue** | The list of tickets with status and filters, shown in the UI. | ticket-kø | backlog, inbox |
 | **Approved Library** | The list of the partners' final, approved results: the result images of the latest round of every approved ticket, each referring back to its ticket. Computed from approved tickets, not a separate store. Called "Approved Photos" in the brief. | godkendt-bibliotek | archive, gallery |
 | **Priority** | How urgent a ticket is: `LOW`, `NORMAL`, `HIGH`. | prioritet | urgency, severity |
+| **Audit event** | A record of one change to a ticket: what changed, who did it and when. Together they form the ticket's audit log. | ændringslog | log entry, history item |
 | **Seed data** | Data the app starts with, here the four tickets from the case, so the app is not empty the first time it runs. | startdata | mock, fixtures (those are for tests) |
 | **KPI** | A number on the dashboard, e.g. tickets pending, tickets awaiting approval. | KPI | metric, stat |
 
@@ -65,7 +66,7 @@ The project is a single bounded context: **the recolour workflow**, from a ticke
 | **Operator** | Creates tickets and sends them to partners. | operatør |
 | **Manager** | Approves or rejects tickets. | manager / leder |
 
-There is no login. The role is chosen in the UI and sent with every request, and the backend enforces what each role may do.
+There is no login. The acting user is chosen in the UI and sent with every request; the role comes from that user, and the backend enforces what each role may do.
 
 ## Words that are easy to mix up
 
