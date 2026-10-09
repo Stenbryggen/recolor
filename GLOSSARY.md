@@ -10,7 +10,7 @@ The project is a single bounded context: **the recolour workflow**, from a ticke
 |---|---|---|---|
 | **Recolour** | Changing the colour of a garment in its product photos, optionally giving it a print. | omfarvning | recolor, edit, retouch (retouching is what the partner does) |
 | **Bestseller (BS)** | The brand that orders recolours. Its staff are the users of the app. | Bestseller | client, customer |
-| **Partner** | An external retouching company that performs the recolour for a ticket. The partner does the work; Bestseller creates and approves. In the app the partner is simulated. | partner | vendor, supplier, agency |
+| **Partner** | An external retouching company that performs the recolour for a ticket. The partner does the work; Bestseller creates and approves. In the app a partner user can log in and sees only its own tickets. | partner | vendor, supplier, agency |
 | **Guideline** | The instruction text that comes with a ticket. Stored verbatim on the ticket. | guideline | brief, instructions |
 | **Clipping path** | A vector outline stored in an image file that cuts the garment out from its background. Every recoloured image must keep the original clipping path, and only one. | beskæringssti | mask, outline, cutout |
 | **Pantone** | A standardised colour system where every colour has a fixed name and number. The brief gives names only, so names are what we store. | Pantone | RGB, hex (we hold no codes) |
@@ -65,6 +65,7 @@ The project is a single bounded context: **the recolour workflow**, from a ticke
 |---|---|---|
 | **Operator** | Creates tickets and sends them to partners. | operatør |
 | **Manager** | Approves or rejects tickets. | manager / leder |
+| **Partner user** | Works on the tickets assigned to its partner: acknowledges receipt, uploads result images and delivers. Sees only its own tickets. | partnerbruger |
 
 There is no login. The acting user is chosen in the UI and sent with every request; the role comes from that user, and the backend enforces what each role may do.
 

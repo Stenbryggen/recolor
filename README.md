@@ -130,9 +130,9 @@ Examples: Granita (solid) is `[RECOLOUR(Granita)]`; Fuchsia Fedora with Block Li
 | `round` | integer | which delivery it belongs to |
 | `file`, `uploadedAt` | | |
 
-**Partner**: an external retouching partner (mock data): `id`, `name`, plus `receiptDelayMs` and `turnaroundMs` for the simulation.
+**Partner**: an external retouching partner (seed data): `id`, `name`. Each partner has one or more users who can log in as that partner.
 
-**User**: `id`, `name`, `role` (`OPERATOR` or `MANAGER`). There is no login: the acting user is chosen in the UI and sent with each request, and the backend takes the role from that user. This simulates identity; it is not security.
+**User**: `id`, `name`, `role` (`OPERATOR`, `MANAGER` or `PARTNER`) and, for a partner user, `partnerId`. There is no login: the acting user is chosen in the UI and sent with each request, and the backend takes the role from that user. This simulates identity; it is not security.
 
 **AuditEvent**: an append-only log of every change to a ticket, so each change is stamped with what changed, who did it and when: `ticketId`, `action` (`CREATED`, `UPDATED`, `FILE_REPLACED`, `SENT`, `APPROVED`, `REJECTED`, …), `actorId`, `at`, `changes` (a list of `{ field, from, to }`) and an optional `comment`. A status change is one kind of event. The latest change is also stamped on the ticket (`updatedBy`, `updatedAt`).
 
@@ -151,8 +151,24 @@ PENDING ──send──▶ SENT ──partner receipt──▶ IN_PROGRESS ─�
 ```
 
 - `APPROVED` is a sixth status beyond the five listed in the brief. Approving a ticket is what makes its results appear in the Approved Library.
-- **Who does what:** Bestseller creates and approves; the partner carries out the work. An Operator creates and sends tickets, and a Manager approves or rejects them. The backend enforces this, not just the UI. The partner is an external party that the app simulates: it receives a sent ticket, works on it and delivers the results. That makes this closer to an *order system* than a support-ticket system: a ticket is in effect a work order placed with a partner.
+- **Who does what:** Bestseller creates and approves; the partner carries out the work. An Operator creates and sends tickets, and a Manager approves or rejects them. The backend enforces this, not just the UI. A partner user can also log in and sees only the tickets assigned to its own partner: it acknowledges receipt, uploads the result images and delivers them. That makes this closer to an *order system* than a support-ticket system: a ticket is in effect a work order placed with a partner.
 - **Dashboard KPIs** are queries over tickets, for example *pending* = `PENDING` and *awaiting approval* = `COMPLETED`.
+
+### Who may do what
+
+A partner is a user too. A partner user logs in (by choosing a user in the UI), sees **only the tickets assigned to its own partner**, and simulates the work by acknowledging the ticket, uploading the result images and delivering them. The backend scopes every ticket query to the acting user, so a partner can never see another partner's tickets.
+
+| Action | Operator | Manager | Partner |
+|---|---|---|---|
+| See tickets | all | all | own only |
+| Create, edit and delete a ticket (while `PENDING`) | yes | | |
+| Send a ticket to its partner (`PENDING` → `SENT`) | yes | | |
+| Acknowledge receipt (`SENT` → `IN_PROGRESS`) | | | yes, own |
+| Upload result images | | | yes, own |
+| Deliver (`IN_PROGRESS` → `COMPLETED`) | | | yes, own |
+| Approve or reject (`COMPLETED` → `APPROVED` / `REJECTED`) | | yes | |
+
+Delivering requires a result image for every variant and every view (front, back and style) in the current round. A rejected ticket shows the rejection reason to the partner, who corrects the work and delivers again.
 
 ### Design decision: a ticket is approved as a whole
 
@@ -181,4 +197,4 @@ A variant is made of operations, and each operation defines its own rules in one
 - The brief names Pantone colours but gives **no colour codes**, so no hex values are invented.
 - The brief does not say what `reference` (e.g. `5081878`) stands for. It is stored as an opaque reference.
 - The `STYLE` slot is the photo ending in `_007`. In Ticket 1 it is a close-up of the fabric, so it is treated as the style/detail view (assumed to be the same in the other tickets).
-- Partners are not in the mock data and are created as seed data; the "partner integration" is simulated with timers.
+- Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. An optional "simulate work" shortcut can fill in placeholder results for demos.
