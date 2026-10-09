@@ -198,3 +198,72 @@ A variant is made of operations, and each operation defines its own rules in one
 - The brief does not say what `reference` (e.g. `5081878`) stands for. It is stored as an opaque reference.
 - The `STYLE` slot is the photo ending in `_007`. In Ticket 1 it is a close-up of the fabric, so it is treated as the style/detail view (assumed to be the same in the other tickets).
 - Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. An optional "simulate work" shortcut can fill in placeholder results for demos.
+
+## API (v1)
+
+All endpoints live under `/api/v1`. There is no login: every request carries the acting user in an `X-User-Id` header, and the backend takes the role from that user (see *Who may do what*). A missing or unknown user gives `401`.
+
+### Reference data
+
+| Method and path | What | Who |
+|---|---|---|
+| `GET /users` | The users to choose from in the UI | anyone |
+| `GET /colours` | The Pantone colour list | all |
+| `GET /patterns` | The pattern list | all |
+| `GET /partners` | Partners with counts per status and receipt information | Operator, Manager |
+| `GET /partners/:id` | One partner with its tickets and receipt status | Operator, Manager |
+
+### Tickets
+
+| Method and path | What | Who |
+|---|---|---|
+| `GET /tickets` | List with filters, sorting and paging (below). A partner sees only its own tickets. | all |
+| `POST /tickets` | Create a ticket. `multipart/form-data` with a `data` field (JSON: `articleNo`, `reference`, `priority`, `partnerId`, `guidelineText`, `variants`) and the files `front`, `back`, `style` and `reference`. | Operator |
+| `GET /tickets/:id` | One ticket with files, variants and results | all, partner scoped |
+| `PATCH /tickets/:id` | Change priority, partner, guideline or variants. Only while every variant is `PENDING`. | Operator |
+| `PUT /tickets/:id/files/:slot` | Replace one file (`FRONT`, `BACK`, `STYLE` or `REFERENCE`). Only while `PENDING`. | Operator |
+| `DELETE /tickets/:id` | Delete. Only while `PENDING`. Returns `204`. | Operator |
+| `GET /tickets/:id/audit` | The ticket's audit log | all, partner scoped |
+
+**Filters on `GET /tickets`:** `status` (one or several, comma separated), `priority`, `partnerId`, `q` (searches article number and reference), `createdFrom`, `createdTo`, `sort` (`createdAt`, `updatedAt`, `priority`, `status`), `order` (`asc` or `desc`), `page` and `pageSize`.
+
+### Workflow actions
+
+| Method and path | Transition | Who |
+|---|---|---|
+| `POST /tickets/:id/send` | `PENDING` → `SENT` | Operator |
+| `POST /tickets/:id/acknowledge` | `SENT` → `IN_PROGRESS` | Partner, own tickets |
+| `PUT /tickets/:id/variants/:variantId/results/:slot` | upload one result image (`FRONT`, `BACK` or `STYLE`) | Partner, own tickets, `IN_PROGRESS` |
+| `POST /tickets/:id/deliver` | `IN_PROGRESS` → `COMPLETED` (needs a result for every variant and view) | Partner, own tickets |
+| `POST /tickets/:id/approve` | `COMPLETED` → `APPROVED` | Manager |
+| `POST /tickets/:id/reject` | `COMPLETED` → `REJECTED`, body `{ "reason": "…" }` | Manager |
+
+A rejected ticket can be sent again, which starts a new round. The allowed transitions are enforced in the domain layer, not in the routes.
+
+### Approved Library and dashboard
+
+| Method and path | What | Who |
+|---|---|---|
+| `GET /approved-photos` | The result images of the latest round of every approved ticket, grouped per variant, each referring back to its ticket (`ticketId`, `articleNo`, `reference`). Filters: `q`, `partnerId`, `operation` (e.g. `AOP`), `colourId`, `approvedFrom`, `approvedTo`, `page`, `pageSize`. | all, partner scoped |
+| `GET /dashboard/kpis` | Counts per status, e.g. pending and awaiting approval (`COMPLETED`) | all, partner scoped |
+| `GET /files/:id` | Streams an uploaded or result file, scoped like tickets | all, partner scoped |
+
+### Conventions
+
+- **Lists** return `{ "items": [...], "total": 42, "page": 1, "pageSize": 20 }`.
+- **Validation errors** return `422` with the errors per field, using the field path: `{ "errors": { "variants.1.operations.1.patternId": "A pattern is required for AOP" } }`.
+- **Other errors** return `{ "error": "message" }` with `400` (malformed request), `401` (unknown user), `403` (not allowed for this role), `404` (not found), `409` (not allowed in the current status), `413` (file too large) or `415` (unsupported file type).
+- **Everything that changes a ticket** writes an audit event with the acting user.
+
+### Backend ports
+
+The use cases depend on small interfaces; adapters implement them, and tests use in-memory versions.
+
+| Port | Purpose |
+|---|---|
+| `TicketRepository` | `list(filter)`, `get(id)`, `create`, `update`, `delete` |
+| `UserRepository`, `PartnerRepository`, `CatalogRepository` | users, partners, colours and patterns |
+| `ApprovedPhotoReader` | the read side of the Approved Library |
+| `FileStorage` | save, read and delete uploaded files |
+| `AuditLog` | append and list audit events |
+| `Clock` | the current time, so tests can control it |
