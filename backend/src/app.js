@@ -3,8 +3,10 @@ import healthRouter from './routes/health.js';
 
 export const API_PREFIX = '/api/v1';
 
-export function createApp() {
+// The container comes from the composition root. Routes (step 2) reach the use cases through it.
+export function createApp(container) {
   const app = express();
+  app.locals.container = container;
 
   app.use(express.json());
 

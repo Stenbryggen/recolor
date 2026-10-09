@@ -25,10 +25,38 @@ npm run dev     # API on http://localhost:3000, web app on http://localhost:5173
 
 The Vite dev server proxies `/api` to the Express backend, so the frontend only talks to its own origin. The API is versioned: all endpoints live under `/api/v1` (for example `GET /api/v1/health`).
 
+```bash
+npm test        # runs the backend tests (vitest)
+npm run build   # builds the frontend
+```
+
 ```
 backend/    Express API (ES modules)
 frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue
 ```
+
+### Backend structure
+
+The backend follows ports and adapters. Dependencies point inwards: adapters depend on the application layer, which depends on the domain, never the other way round.
+
+```
+backend/src/
+  domain/          The rules. No Express, no I/O.
+    operations/      One file per operation (recolour, aop, resize) and the registry (index.js)
+    ticket.js        Ticket input schema, required slots, building a new ticket
+    variant.js       Variant schema (generic rules only)
+    constants.js     Status, priority, role and slot names
+    errors.js        ValidationError (errors per field) and NotFoundError
+  application/     One file per use case (createTicket, getTicket, listTickets) and ports.js,
+                   which describes the ports (see *Backend ports*)
+  adapters/        Implementations of the ports: in-memory repositories, system/fixed clock
+  seed/            Seed data: colours, patterns, partners, users and the four tickets
+  compositionRoot.js  The one place that decides which adapter fills which port
+  app.js, server.js   Express and start-up; routes arrive with the API
+backend/tests/     vitest tests for the domain, the use cases, the adapters and the seed data
+```
+
+Validation uses [zod](https://zod.dev). Zod is used inside the domain on purpose: the schema is the rule, so it lives next to the rule instead of being copied into a second layer. A `ValidationError` carries one message per field path, which the API turns into a `422`.
 
 ## What the mock data contains
 
@@ -183,7 +211,7 @@ What follows from that:
 
 ### Design decision: the rules of an operation live in the operation
 
-A variant is made of operations, and each operation defines its own rules in one small definition (`backend/src/domain/operations/`): its schema and the ticket files it requires. For example, `AOP` requires a pattern and a `REFERENCE` file, and `RESIZE` requires a width and a height. The ticket and variant code is generic: it asks every operation in a variant what it requires and checks the ticket against the combined answer. It never mentions a specific operation.
+A variant is made of operations, and each operation defines its own rules in one small definition (`backend/src/domain/operations/`): its `schema`, the ticket files it requires (`requiredFiles`) and which of its fields point into a lookup list (`references`, for example `colourId` points to the colour list). For example, `AOP` requires a pattern and a `REFERENCE` file, and `RESIZE` requires a width and a height. The ticket and variant code is generic: it asks every operation in a variant what it requires and checks the ticket against the combined answer. It never mentions a specific operation.
 
 - Adding a new kind of work, for example removing a background, means adding one definition and registering it. The ticket model, the file validation and the approval flow do not change.
 - The rule *at most one operation of each type per variant* is generic and lives with the variant. Front, back and style are always required and live with the ticket.
@@ -197,6 +225,7 @@ A variant is made of operations, and each operation defines its own rules in one
 - The brief names Pantone colours but gives **no colour codes**, so no hex values are invented.
 - The brief does not say what `reference` (e.g. `5081878`) stands for. It is stored as an opaque reference.
 - The `STYLE` slot is the photo ending in `_007`. In Ticket 1 it is a close-up of the fabric, so it is treated as the style/detail view (assumed to be the same in the other tickets).
+- **Seed data.** The four tickets are created through the real `createTicket` use case when the server starts, so they are validated and audited like any other ticket. Their guideline texts are copied from the `Guideline.rtf` files (formatting removed), and their file paths point into the `recolour-case` folder, which is not part of this repository. The partners (Pixelworks, ClipMaster) and the users are invented. All four tickets start as `PENDING`.
 - Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. An optional "simulate work" shortcut can fill in placeholder results for demos.
 
 ## API (v1)
@@ -261,9 +290,12 @@ The use cases depend on small interfaces; adapters implement them, and tests use
 
 | Port | Purpose |
 |---|---|
-| `TicketRepository` | `list(filter)`, `get(id)`, `create`, `update`, `delete` |
-| `UserRepository`, `PartnerRepository`, `CatalogRepository` | users, partners, colours and patterns |
+| `TicketRepository` | `nextId()`, `list()` (filters arrive with the API), `get(id)`, `create`, `update`, `delete` |
+| `UserRepository`, `PartnerRepository` | `list()` and `get(id)` |
+| `CatalogRepository` | `list(kind)` and `exists(kind, id)` for colours and patterns (`kind` is `colour` or `pattern`) |
 | `ApprovedPhotoReader` | the read side of the Approved Library |
 | `FileStorage` | save, read and delete uploaded files |
 | `AuditLog` | append and list audit events |
 | `Clock` | the current time, so tests can control it |
+
+`FileStorage` and `ApprovedPhotoReader` are added in the steps that need them (file upload and the Approved Library). A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).
