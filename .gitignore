@@ -1,0 +1,15 @@
+# Case material supplied separately (large images) - never commit
+recolour-case/
+
+# Dependencies and build output
+node_modules/
+dist/
+
+# Local data and uploads
+data/*.json
+uploads/
+
+# Environment and OS files
+.env
+.env.*
+.DS_Store
