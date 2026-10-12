@@ -32,6 +32,21 @@ export const SLOT = Object.freeze({
 // Every ticket needs the three source photos. Operations can require more slots.
 export const SOURCE_SLOTS = Object.freeze([SLOT.FRONT, SLOT.BACK, SLOT.STYLE]);
 
+// How tickets can be sorted in the queue.
+export const SORT_FIELD = Object.freeze({
+  CREATED_AT: 'createdAt',
+  UPDATED_AT: 'updatedAt',
+  PRIORITY: 'priority',
+  STATUS: 'status',
+});
+
+// For sorting: LOW < NORMAL < HIGH, and statuses in the order of the flow.
+export const PRIORITY_ORDER = Object.values(PRIORITY);
+export const STATUS_ORDER = Object.values(STATUS);
+
 export const AUDIT_ACTION = Object.freeze({
   CREATED: 'CREATED',
+  UPDATED: 'UPDATED',
+  FILE_REPLACED: 'FILE_REPLACED',
+  DELETED: 'DELETED',
 });

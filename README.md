@@ -47,13 +47,18 @@ backend/src/
     variant.js       Variant schema (generic rules only)
     constants.js     Status, priority, role and slot names
     errors.js        ValidationError (errors per field) and NotFoundError
-  application/     One file per use case (createTicket, getTicket, listTickets) and ports.js,
-                   which describes the ports (see *Backend ports*)
-  adapters/        Implementations of the ports: in-memory repositories, system/fixed clock
+  application/     One file per use case (createTicket, updateTicket, listTickets, ...), the rules for
+                   uploads and for the ticket query, and ports.js, which describes the ports
+                   (see *Backend ports*)
+  adapters/        Implementations of the ports: in-memory repositories, file storage (in memory
+                   and on disk), system/fixed clock
+  routes/          Express routers: they read the request, call a use case and write the response
+  middleware/      X-User-Id, file upload (multer) and the error handler
   seed/            Seed data: colours, patterns, partners, users and the four tickets
   compositionRoot.js  The one place that decides which adapter fills which port
-  app.js, server.js   Express and start-up; routes arrive with the API
-backend/tests/     vitest tests for the domain, the use cases, the adapters and the seed data
+  app.js, server.js   Express and start-up
+backend/tests/     vitest tests for the domain, the use cases, the adapters, the seed data and the
+                   API (api/, using supertest)
 ```
 
 Validation uses [zod](https://zod.dev). Zod is used inside the domain on purpose: the schema is the rule, so it lives next to the rule instead of being copied into a second layer. A `ValidationError` carries one message per field path, which the API turns into a `422`.
@@ -225,12 +230,13 @@ A variant is made of operations, and each operation defines its own rules in one
 - The brief names Pantone colours but gives **no colour codes**, so no hex values are invented.
 - The brief does not say what `reference` (e.g. `5081878`) stands for. It is stored as an opaque reference.
 - The `STYLE` slot is the photo ending in `_007`. In Ticket 1 it is a close-up of the fabric, so it is treated as the style/detail view (assumed to be the same in the other tickets).
-- **Seed data.** The four tickets are created through the real `createTicket` use case when the server starts, so they are validated and audited like any other ticket. Their guideline texts are copied from the `Guideline.rtf` files (formatting removed), and their file paths point into the `recolour-case` folder, which is not part of this repository. The partners (Pixelworks, ClipMaster) and the users are invented. All four tickets start as `PENDING`.
+- **Seed data.** The four tickets are created through the real `createTicket` use case when the server starts, so they are validated, stored and audited like any other ticket. Their guideline texts are copied from the `Guideline.rtf` files (formatting removed). The photos are uploaded from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`); if the folder is not found, a tiny placeholder image is used instead. The partners (Pixelworks, ClipMaster) and the users are invented. All four tickets start as `PENDING`.
+- **Uploaded files** are kept in `backend/uploads/` (not committed), one folder per ticket. The data (tickets, audit log) is only in memory and starts fresh, with the seed data, every time the server starts.
 - Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. An optional "simulate work" shortcut can fill in placeholder results for demos.
 
 ## API (v1)
 
-All endpoints live under `/api/v1`. There is no login: every request carries the acting user in an `X-User-Id` header, and the backend takes the role from that user (see *Who may do what*). A missing or unknown user gives `401`.
+All endpoints live under `/api/v1`. There is no login: every request carries the acting user in an `X-User-Id` header, and the backend takes the role from that user (see *Who may do what*). A missing or unknown user gives `401`. Only `GET /health` and `GET /users` work without the header.
 
 ### Reference data
 
@@ -249,8 +255,8 @@ All endpoints live under `/api/v1`. There is no login: every request carries the
 | `GET /tickets` | List with filters, sorting and paging (below). A partner sees only its own tickets. | all |
 | `POST /tickets` | Create a ticket. `multipart/form-data` with a `data` field (JSON: `articleNo`, `reference`, `priority`, `partnerId`, `guidelineText`, `variants`) and the files `front`, `back`, `style` and `reference`. | Operator |
 | `GET /tickets/:id` | One ticket with files, variants and results | all, partner scoped |
-| `PATCH /tickets/:id` | Change priority, partner, guideline or variants. Only while every variant is `PENDING`. | Operator |
-| `PUT /tickets/:id/files/:slot` | Replace one file (`FRONT`, `BACK`, `STYLE` or `REFERENCE`). Only while `PENDING`. | Operator |
+| `PATCH /tickets/:id` | Change priority, partner, guideline, `singleClippingPath` or variants. Only while the ticket is `PENDING`. Other fields (such as the status) are refused. | Operator |
+| `PUT /tickets/:id/files/:slot` | Replace one file (`FRONT`, `BACK`, `STYLE` or `REFERENCE`). `multipart/form-data` with the file in the field `file`. Only while `PENDING`. | Operator |
 | `DELETE /tickets/:id` | Delete. Only while `PENDING`. Returns `204`. | Operator |
 | `GET /tickets/:id/audit` | The ticket's audit log | all, partner scoped |
 
@@ -282,7 +288,9 @@ A rejected ticket can be sent again, which starts a new round. The allowed trans
 - **Lists** return `{ "items": [...], "total": 42, "page": 1, "pageSize": 20 }`.
 - **Validation errors** return `422` with the errors per field, using the field path: `{ "errors": { "variants.1.operations.1.patternId": "A pattern is required for AOP" } }`.
 - **Other errors** return `{ "error": "message" }` with `400` (malformed request), `401` (unknown user), `403` (not allowed for this role), `404` (not found), `409` (not allowed in the current status), `413` (file too large) or `415` (unsupported file type).
-- **Everything that changes a ticket** writes an audit event with the acting user.
+- **Everything that changes a ticket** writes an audit event with the acting user. A change that leaves the ticket as it was writes nothing. Deleting a ticket removes it and its files, but the audit log keeps a `DELETED` event.
+- **Uploaded files** must be JPEG or PNG images (the extension and the MIME type must agree) of at most 30 MB and not empty. A file in a field the API does not know gives `400`.
+- **Photo ID:** the photo ID of an uploaded file is its file name without extension. The API never shows where a file is stored; each file has a `url` (`/api/v1/files/:id`) instead.
 
 ### Backend ports
 
@@ -290,12 +298,12 @@ The use cases depend on small interfaces; adapters implement them, and tests use
 
 | Port | Purpose |
 |---|---|
-| `TicketRepository` | `nextId()`, `list()` (filters arrive with the API), `get(id)`, `create`, `update`, `delete` |
+| `TicketRepository` | `nextId()`, `list(filter)` (one page and the total, see *Filters on `GET /tickets`*), `get(id)`, `findByFileId(fileId)`, `create`, `update`, `delete` |
 | `UserRepository`, `PartnerRepository` | `list()` and `get(id)` |
 | `CatalogRepository` | `list(kind)` and `exists(kind, id)` for colours and patterns (`kind` is `colour` or `pattern`) |
 | `ApprovedPhotoReader` | the read side of the Approved Library |
-| `FileStorage` | save, read and delete uploaded files |
+| `FileStorage` | `save(key, buffer)`, `read(key)` (null if missing), `delete(key)`. Adapters: in memory (tests) and a folder on disk |
 | `AuditLog` | append and list audit events |
 | `Clock` | the current time, so tests can control it |
 
-`FileStorage` and `ApprovedPhotoReader` are added in the steps that need them (file upload and the Approved Library). A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).
+`ApprovedPhotoReader` is added together with the Approved Library. A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).

@@ -1,6 +1,10 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
 // The four tickets from the case (Ticket 1-4), as input for the createTicket use case.
 // Guideline texts are copied from the Guideline.rtf files (formatting removed).
-// The `file` paths point into the recolour-case folder, which is not part of this repository.
+// `files` says where each photo is in the recolour-case folder, which is not part of this repository.
+// If that folder is not found, a tiny placeholder image is used instead of the photo.
 
 const CLIPPING_PATH_LINE =
   'Please be aware to keep clipping path for all pictures (but only 1 clipping path)';
@@ -10,19 +14,14 @@ function guideline(lines) {
 }
 
 function files(ticketNo, articleNo, reference, referenceImage) {
-  const source = (suffix) => ({
-    photoId: `${articleNo}_${reference}_${suffix}`,
-    file: `recolour-case/Ticket ${ticketNo}/${articleNo}_${reference}_${suffix}.jpg`,
-  });
+  const folder = `Ticket ${ticketNo}`;
+  const source = (suffix) => `${folder}/${articleNo}_${reference}_${suffix}.jpg`;
 
   return {
     FRONT: source('001'),
     BACK: source('002'),
     STYLE: source('007'),
-    REFERENCE: {
-      photoId: referenceImage,
-      file: `recolour-case/Ticket ${ticketNo}/${referenceImage}.jpg`,
-    },
+    REFERENCE: `${folder}/${referenceImage}.jpg`,
   };
 }
 
@@ -97,10 +96,39 @@ export const demoTickets = [
   },
 ];
 
+// A 1x1 pixel PNG.
+const PLACEHOLDER_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+  'base64',
+);
+
+// The photo from the case folder, or the placeholder if the folder or the photo is missing.
+async function uploadFor(relativePath, caseDir) {
+  const fileName = path.basename(relativePath);
+
+  if (caseDir) {
+    try {
+      const buffer = await readFile(path.join(caseDir, relativePath));
+      return { originalName: fileName, mimeType: 'image/jpeg', buffer };
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+
+  const photoId = fileName.slice(0, fileName.lastIndexOf('.'));
+  return { originalName: `${photoId}.png`, mimeType: 'image/png', buffer: PLACEHOLDER_PNG };
+}
+
 // Creates the demo tickets through the real use case, so they are validated
 // and audited like any other ticket. The first Operator is the creator.
-export async function seedDemoTickets(container, { creatorId = 'user-maria' } = {}) {
-  for (const input of demoTickets) {
-    await container.useCases.createTicket(input, creatorId);
+export async function seedDemoTickets(container, { creatorId = 'user-maria', caseDir } = {}) {
+  const creator = await container.repositories.users.get(creatorId);
+
+  for (const { files: paths, ...data } of demoTickets) {
+    const uploads = {};
+    for (const [slot, relativePath] of Object.entries(paths)) {
+      uploads[slot] = await uploadFor(relativePath, caseDir);
+    }
+    await container.useCases.createTicket(data, uploads, creator);
   }
 }

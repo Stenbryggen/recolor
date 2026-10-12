@@ -9,10 +9,18 @@
  */
 
 /**
+ * The filter for TicketRepository.list (see ticketQuery.js): statuses (array, empty = all),
+ * priority, partnerId, q, createdFrom, createdTo (ISO timestamps), sort, order, page, pageSize.
+ * @typedef {Object} TicketFilter
+ */
+
+/**
  * @typedef {Object} TicketRepository
  * @property {() => Promise<string>} nextId        A new, unused ticket id.
- * @property {() => Promise<Object[]>} list        All tickets (filters arrive with the API).
+ * @property {(filter: TicketFilter) => Promise<{ items: Object[], total: number }>} list
+ *           One page of tickets that match the filter, and the total number that match.
  * @property {(id: string) => Promise<Object|null>} get
+ * @property {(fileId: string) => Promise<Object|null>} findByFileId  The ticket that holds a file.
  * @property {(ticket: Object) => Promise<void>} create
  * @property {(ticket: Object) => Promise<void>} update
  * @property {(id: string) => Promise<void>} delete
@@ -42,6 +50,14 @@
  * @typedef {Object} AuditLog
  * @property {(event: Object) => Promise<void>} append
  * @property {(ticketId: string) => Promise<Object[]>} list
+ */
+
+/**
+ * Stores the bytes of uploaded files under a key like "ticket-1/front.jpg".
+ * @typedef {Object} FileStorage
+ * @property {(key: string, buffer: Buffer) => Promise<void>} save
+ * @property {(key: string) => Promise<Buffer|null>} read   null if there is no such file.
+ * @property {(key: string) => Promise<void>} delete
  */
 
 export {};
