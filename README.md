@@ -26,13 +26,13 @@ npm run dev     # API on http://localhost:3000, web app on http://localhost:5173
 The Vite dev server proxies `/api` to the Express backend, so the frontend only talks to its own origin. The API is versioned: all endpoints live under `/api/v1` (for example `GET /api/v1/health`).
 
 ```bash
-npm test        # runs the backend tests (vitest)
+npm test        # runs the backend and frontend tests (vitest)
 npm run build   # builds the frontend
 ```
 
 ```
 backend/    Express API (ES modules)
-frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue
+frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue 4
 ```
 
 ### Backend structure
@@ -243,7 +243,39 @@ A variant is made of operations, and each operation defines its own rules in one
 - The `STYLE` slot is the photo ending in `_007`. In Ticket 1 it is a close-up of the fabric, so it is treated as the style/detail view (assumed to be the same in the other tickets).
 - **Seed data.** The four tickets are created through the real `createTicket` use case when the server starts, so they are validated, stored and audited like any other ticket. Their guideline texts are copied from the `Guideline.rtf` files (formatting removed). The photos are uploaded from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`); if the folder is not found, a tiny placeholder image is used instead. The partners (Pixelworks, ClipMaster) and the users are invented. All four tickets start as `PENDING`.
 - **Uploaded files** are kept in `backend/uploads/` (not committed), one folder per ticket. The data (tickets, audit log) is only in memory and starts fresh, with the seed data, every time the server starts.
-- Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. An optional "simulate work" shortcut can fill in placeholder results for demos.
+- Partners are not in the mock data and are created as seed data. The "partner integration" is a partner view of the app: a partner user logs in, sees its own tickets and simulates the work by uploading result images. For demos the ticket page has a button that fills the empty places with the ticket's own photos; it is done in the frontend with the normal upload endpoint, so the backend has no special case.
+
+## Frontend
+
+Vue 3 with Vue Router, Pinia and PrimeVue 4 (PrimeVue 5 needs a licence key and shows a notice without one, so version 4, which is MIT licensed, is used). The words in the UI are the glossary words.
+
+```
+frontend/src/
+  api/          client.js (fetch, X-User-Id header, ApiError) and index.js (one function per endpoint)
+  stores/       user.js (who is acting) and reference.js (colours, patterns, partners)
+  views/        one file per page
+  components/   StatusTag, PriorityTag, AuthImage, ResultsTable, AuditLog, UserPicker
+  ticketActions.js   which buttons a user sees on a ticket
+  ticketForm.js      the new-ticket form: the request it sends and where the errors belong
+  describe.js        short texts for operations, and the result images of the latest round
+frontend/tests/      vitest: the api client, the rules for buttons, the form request, one component
+```
+
+| Page | Who | What |
+|---|---|---|
+| **Dashboard** | all | The KPIs: a tile per status (Completed is also called *awaiting approval*); a tile opens the Queue with that status as filter. A partner user sees the numbers of its own tickets. |
+| **Queue** | all | The ticket queue: search, filters on status, priority, partner and created date, sorting and paging (all done by the API). A row opens the ticket. |
+| **New ticket** | Operator | The create form: ticket fields, one or more variants (a colour and an **AOP** checkbox that adds a pattern), and the four photos. The reference image is only asked for when a variant has AOP. The errors of the API (`422`) are shown at their fields. |
+| **Ticket** | all | Photos, variants, guideline, receipt times, result images per round, and the audit log. The buttons follow the user and the status: send / delete (Operator), confirm receipt / upload result images / deliver (Partner user), approve / reject (Manager). Approving shows the clipping-path checklist; rejecting asks for the reason. |
+| **Approved Library** | all | The approved results per variant, with filters (search, partner, operation, colour, approval date). A partner user sees its own. |
+| **Partner Overview** | Operator, Manager | A card per partner with its number of tickets, and the receipt status of the tickets of the chosen partner (sent, receipt, completed). |
+
+Things worth knowing:
+
+- **Acting user.** The user picker in the top bar chooses who acts (it is remembered in the browser). The menu only shows the pages that user may open, and every request sends `X-User-Id`. The buttons are only a convenience; the backend enforces the rules.
+- **Photos.** An `<img>` cannot send the `X-User-Id` header, so `AuthImage` fetches the file with the header and shows it from an object URL. A click shows the photo large.
+- **Editing a ticket** (`PATCH`, replacing a photo) is in the API but has no page: a pending ticket that is wrong is deleted and created again.
+- **The demo shortcut.** On an *In progress* ticket, a partner user can use *Fill with placeholder images (demo)*, which uploads the ticket's own front, back and style photo as the results.
 
 ## API (v1)
 
