@@ -1,9 +1,8 @@
-import { NotFoundError } from '../domain/errors.js';
+import { findTicket } from './findTicket.js';
 
 export function makeListAudit({ tickets, audit }) {
   return async function listAudit(id, actor) {
-    const ticket = await tickets.get(id);
-    if (!ticket) throw new NotFoundError('Ticket', id);
+    await findTicket(tickets, id, actor);
     return audit.list(id);
   };
 }

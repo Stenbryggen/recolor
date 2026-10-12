@@ -4,6 +4,7 @@ import { requireUser } from './middleware/requireUser.js';
 import { fileRoutes } from './routes/files.js';
 import healthRouter from './routes/health.js';
 import { API_PREFIX } from './routes/prefix.js';
+import { overviewRoutes } from './routes/overview.js';
 import { referenceRoutes } from './routes/reference.js';
 import { ticketRoutes } from './routes/tickets.js';
 
@@ -29,6 +30,7 @@ export function createApp(container) {
   // Everything below needs an X-User-Id header.
   v1.use(requireUser(useCases.identifyUser));
   v1.use(referenceRoutes(useCases));
+  v1.use(overviewRoutes(useCases));
   v1.use('/tickets', ticketRoutes(useCases));
   v1.use('/files', fileRoutes(useCases));
 

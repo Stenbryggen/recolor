@@ -2,11 +2,19 @@ import { API_PREFIX } from './prefix.js';
 
 export const fileUrl = (fileId) => `${API_PREFIX}/files/${fileId}`;
 
-// What the API returns for a ticket: the storage key of each file is internal,
-// so it is replaced by a url the client can use.
+// The storage key of a file is internal, so it is replaced by a url the client can use.
+const withUrl = ({ file, ...rest }) => ({ ...rest, url: fileUrl(rest.id) });
+
+// What the API returns for a ticket.
 export function presentTicket(ticket) {
   return {
     ...ticket,
-    files: ticket.files.map(({ file, ...rest }) => ({ ...rest, url: fileUrl(rest.id) })),
+    files: ticket.files.map(withUrl),
+    results: ticket.results.map(withUrl),
   };
+}
+
+// What the API returns for an item of the Approved Library.
+export function presentApprovedPhoto(item) {
+  return { ...item, images: item.images.map((image) => ({ ...image, url: fileUrl(image.id) })) };
 }

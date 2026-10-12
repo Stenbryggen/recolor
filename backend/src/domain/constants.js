@@ -32,6 +32,9 @@ export const SLOT = Object.freeze({
 // Every ticket needs the three source photos. Operations can require more slots.
 export const SOURCE_SLOTS = Object.freeze([SLOT.FRONT, SLOT.BACK, SLOT.STYLE]);
 
+// A page size that returns every row (for the overviews that need all tickets).
+export const ALL_ROWS = Number.MAX_SAFE_INTEGER;
+
 // How tickets can be sorted in the queue.
 export const SORT_FIELD = Object.freeze({
   CREATED_AT: 'createdAt',
@@ -49,4 +52,10 @@ export const AUDIT_ACTION = Object.freeze({
   UPDATED: 'UPDATED',
   FILE_REPLACED: 'FILE_REPLACED',
   DELETED: 'DELETED',
+  SENT: 'SENT',
+  ACKNOWLEDGED: 'ACKNOWLEDGED',
+  RESULT_UPLOADED: 'RESULT_UPLOADED',
+  DELIVERED: 'DELIVERED',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
 });

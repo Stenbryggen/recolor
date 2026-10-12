@@ -1,5 +1,6 @@
 import { AUDIT_ACTION, SLOT } from '../domain/constants.js';
 import { ValidationError } from '../domain/errors.js';
+import { assertAllowed } from '../domain/permissions.js';
 import { buildTicket, parseTicketInput } from '../domain/ticket.js';
 import { findUnknownReferences } from './references.js';
 import { checkUpload, photoIdFrom } from './uploads.js';
@@ -10,6 +11,8 @@ export const fileKey = (ticketId, slot, extension) => `${ticketId}/${slot.toLowe
 // { FRONT: { originalName, mimeType, buffer }, ... }. The photo ID is the file name without extension.
 export function makeCreateTicket({ tickets, partners, catalog, audit, fileStorage, clock }) {
   return async function createTicket(rawData, uploads, actor) {
+    assertAllowed(actor, 'createTicket');
+
     const extensions = {};
     const files = {};
     for (const slot of Object.values(SLOT)) {

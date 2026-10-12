@@ -55,6 +55,7 @@ describe('in-memory ticket repository: list', () => {
     createdAt: `2026-10-0${n}T10:00:00.000Z`,
     updatedAt: `2026-10-0${n}T10:00:00.000Z`,
     files: [],
+    results: [],
     ...overrides,
   });
 

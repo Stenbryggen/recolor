@@ -20,10 +20,18 @@
  * @property {(filter: TicketFilter) => Promise<{ items: Object[], total: number }>} list
  *           One page of tickets that match the filter, and the total number that match.
  * @property {(id: string) => Promise<Object|null>} get
- * @property {(fileId: string) => Promise<Object|null>} findByFileId  The ticket that holds a file.
+ * @property {(filter: { partnerId?: string }) => Promise<Object>} countByStatus  Tickets per status (0 if none).
+ * @property {(fileId: string) => Promise<Object|null>} findByFileId  The ticket that holds a file or result image.
  * @property {(ticket: Object) => Promise<void>} create
  * @property {(ticket: Object) => Promise<void>} update
  * @property {(id: string) => Promise<void>} delete
+ */
+
+/**
+ * The read side of the Approved Library: one item per variant of an approved ticket,
+ * with the result images of the ticket's latest round. Computed from the approved tickets.
+ * @typedef {Object} ApprovedPhotoReader
+ * @property {(filter: Object) => Promise<{ items: Object[], total: number }>} list
  */
 
 /**

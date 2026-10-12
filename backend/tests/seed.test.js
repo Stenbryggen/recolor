@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createContainer } from '../src/compositionRoot.js';
 import { seedDemoTickets } from '../src/seed/demoTickets.js';
+import { actors } from './helpers.js';
 
 async function seededContainer() {
   const container = createContainer();
@@ -46,7 +47,7 @@ describe('seed data', () => {
   it('stores a file for every slot of every ticket', async () => {
     const container = createContainer();
     await seedDemoTickets(container);
-    const { buffer } = await container.useCases.getFile('ticket-1-front', { id: 'x' });
+    const { buffer } = await container.useCases.getFile('ticket-1-front', actors.maria);
     expect(buffer.length).toBeGreaterThan(0);
   });
 
@@ -83,7 +84,7 @@ describe('seed data', () => {
       const container = createContainer();
       await seedDemoTickets(container, { caseDir });
 
-      const actor = { id: 'user-maria' };
+      const actor = actors.maria;
       const front = await container.useCases.getFile('ticket-1-front', actor);
       expect(front.buffer.toString()).toBe('real photo');
       expect(front.contentType).toBe('image/jpeg');

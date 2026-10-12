@@ -27,6 +27,14 @@ export class UnauthorizedError extends Error {
   }
 }
 
+// The user's role is not allowed to do this.
+export class ForbiddenError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ForbiddenError';
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(what, id) {
     super(`${what} ${id} was not found`);

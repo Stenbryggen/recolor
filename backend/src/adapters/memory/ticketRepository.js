@@ -60,8 +60,19 @@ export function createMemoryTicketRepository() {
       return ticket ? structuredClone(ticket) : null;
     },
 
+    // The number of tickets per status, with 0 for statuses nobody has. Can be limited to one partner.
+    async countByStatus({ partnerId } = {}) {
+      const counts = Object.fromEntries(STATUS_ORDER.map((status) => [status, 0]));
+      for (const ticket of tickets.values()) {
+        if (!partnerId || ticket.partnerId === partnerId) counts[ticket.status] += 1;
+      }
+      return counts;
+    },
+
+    // A file id belongs to a file of the ticket or to one of its result images.
     async findByFileId(fileId) {
-      const ticket = [...tickets.values()].find((candidate) => candidate.files.some((file) => file.id === fileId));
+      const holdsFile = (ticket) => [...ticket.files, ...ticket.results].some((file) => file.id === fileId);
+      const ticket = [...tickets.values()].find(holdsFile);
       return ticket ? structuredClone(ticket) : null;
     },
 

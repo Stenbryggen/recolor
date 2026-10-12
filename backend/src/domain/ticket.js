@@ -79,11 +79,19 @@ export function parseTicketPatch(rawPatch) {
   return patch;
 }
 
+// Throws a ConflictError unless the ticket has one of the given statuses.
+// `action` completes the sentence "A ticket can only be ...", e.g. "sent".
+export function assertStatus(ticket, statuses, action) {
+  if (!statuses.includes(ticket.status)) {
+    throw new ConflictError(
+      `A ticket can only be ${action} while it is ${statuses.join(' or ')} (this one is ${ticket.status})`,
+    );
+  }
+}
+
 // Tickets can only be edited or deleted while they are PENDING.
 export function assertPending(ticket, action) {
-  if (ticket.status !== STATUS.PENDING) {
-    throw new ConflictError(`A ticket can only be ${action} while it is PENDING (this one is ${ticket.status})`);
-  }
+  assertStatus(ticket, [STATUS.PENDING], action);
 }
 
 // Builds a new ticket from validated input. A new ticket is always PENDING in round 0.
@@ -116,6 +124,7 @@ export function buildTicket({ id, input, actorId, now }) {
         file: input.files[slot].file,
       })),
     variants: buildVariants(id, input.variants),
+    results: [],
     createdBy: actorId,
     createdAt: at,
     updatedBy: actorId,

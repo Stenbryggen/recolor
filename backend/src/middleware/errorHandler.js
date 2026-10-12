@@ -3,6 +3,7 @@ import {
   BadRequestError,
   ConflictError,
   FileTooLargeError,
+  ForbiddenError,
   NotFoundError,
   UnauthorizedError,
   UnsupportedFileTypeError,
@@ -18,6 +19,7 @@ export function errorHandler(err, req, res, next) {
   const statusFor = [
     [BadRequestError, 400],
     [UnauthorizedError, 401],
+    [ForbiddenError, 403],
     [NotFoundError, 404],
     [ConflictError, 409],
     [FileTooLargeError, 413],

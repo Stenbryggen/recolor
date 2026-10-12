@@ -1,13 +1,15 @@
 import { AUDIT_ACTION } from '../domain/constants.js';
-import { NotFoundError, ValidationError } from '../domain/errors.js';
+import { ValidationError } from '../domain/errors.js';
+import { assertAllowed } from '../domain/permissions.js';
 import { applyTicketPatch, assertPending, parseTicketPatch } from '../domain/ticket.js';
+import { findTicket } from './findTicket.js';
 import { findUnknownReferences } from './references.js';
 
 // Changes priority, partner, guideline, clipping path or variants of a PENDING ticket.
 export function makeUpdateTicket({ tickets, partners, catalog, audit, clock }) {
   return async function updateTicket(id, rawPatch, actor) {
-    const ticket = await tickets.get(id);
-    if (!ticket) throw new NotFoundError('Ticket', id);
+    assertAllowed(actor, 'updateTicket');
+    const ticket = await findTicket(tickets, id, actor);
     assertPending(ticket, 'changed');
 
     const patch = parseTicketPatch(rawPatch);

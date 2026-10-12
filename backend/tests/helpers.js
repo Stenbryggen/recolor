@@ -105,3 +105,42 @@ export async function catchError(fn) {
   }
   throw new Error('Expected an error, but nothing was thrown');
 }
+
+// The partner user that works for the partner of the ticket made by validData (ClipMaster).
+export const partnerUser = actors.ravi;
+
+// The partner user for a partner id.
+const PARTNER_USERS = { 'partner-clipmaster': actors.ravi, 'partner-pixelworks': actors.anh };
+
+// Uploads a result image for every variant and view of a ticket, as a user of the ticket's partner.
+export async function uploadAllResults(container, ticketId) {
+  const ticket = await container.repositories.tickets.get(ticketId);
+  const actor = PARTNER_USERS[ticket.partnerId];
+  for (const variant of ticket.variants) {
+    for (const slot of ['FRONT', 'BACK', 'STYLE']) {
+      await container.useCases.uploadResultImage(ticketId, variant.id, slot, pngUpload(`${variant.id}_${slot}`), actor);
+    }
+  }
+}
+
+const FLOW = ['PENDING', 'SENT', 'IN_PROGRESS', 'COMPLETED', 'APPROVED', 'REJECTED'];
+
+// Creates a ticket and takes it through the workflow until it has the wanted status.
+export async function ticketWithStatus(container, status, options = {}) {
+  const { useCases } = container;
+  const ticket = await createPendingTicket(container, options);
+  const id = ticket.id;
+  const partner = PARTNER_USERS[ticket.partnerId];
+  const reached = (name) => FLOW.indexOf(status) >= FLOW.indexOf(name) && !(status === 'REJECTED' && name === 'APPROVED');
+
+  if (reached('SENT')) await useCases.sendTicket(id, actors.maria);
+  if (reached('IN_PROGRESS')) await useCases.acknowledgeTicket(id, partner);
+  if (reached('COMPLETED')) {
+    await uploadAllResults(container, id);
+    await useCases.deliverTicket(id, partner);
+  }
+  if (reached('APPROVED')) await useCases.approveTicket(id, actors.jens);
+  if (status === 'REJECTED') await useCases.rejectTicket(id, actors.jens, { reason: 'The colour is too dark' });
+
+  return useCases.getTicket(id, actors.maria);
+}

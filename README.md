@@ -43,13 +43,15 @@ The backend follows ports and adapters. Dependencies point inwards: adapters dep
 backend/src/
   domain/          The rules. No Express, no I/O.
     operations/      One file per operation (recolour, aop, resize) and the registry (index.js)
-    ticket.js        Ticket input schema, required slots, building a new ticket
+    ticket.js        Ticket input schema, required slots, building and changing a ticket
     variant.js       Variant schema (generic rules only)
+    workflow.js      The status changes (send, acknowledge, deliver, approve, reject) and result images
+    permissions.js   Who may do what, and who may see which ticket
     constants.js     Status, priority, role and slot names
     errors.js        ValidationError (errors per field) and NotFoundError
-  application/     One file per use case (createTicket, updateTicket, listTickets, ...), the rules for
-                   uploads and for the ticket query, and ports.js, which describes the ports
-                   (see *Backend ports*)
+  application/     One file per use case (createTicket, updateTicket, listTickets, workflow.js for the five
+                   workflow actions, ...), the rules for uploads and for the queries, and ports.js, which
+                   describes the ports (see *Backend ports*)
   adapters/        Implementations of the ports: in-memory repositories, file storage (in memory
                    and on disk), system/fixed clock
   routes/          Express routers: they read the request, call a use case and write the response
@@ -158,16 +160,19 @@ Examples: Granita (solid) is `[RECOLOUR(Granita)]`; Fuchsia Fedora with Block Li
 
 | Field | Type | Notes |
 |---|---|---|
-| `id`, `variantId` | string | |
+| `id`, `ticketId`, `variantId` | string | the id is `<variantId>-<slot>-r<round>`, e.g. `ticket-1-v1-front-r1` |
 | `slot` | `FRONT` \| `BACK` \| `STYLE` | 3 per variant and round |
 | `round` | integer | which delivery it belongs to |
+| `photoId` | string | the file name without extension |
 | `file`, `uploadedAt` | | |
+
+The result images are kept on the ticket (`results`). A new upload for the same variant, view and round replaces the earlier one. Images from earlier rounds are kept; the ones of the ticket's current (latest) round are the ones that count.
 
 **Partner**: an external retouching partner (seed data): `id`, `name`. Each partner has one or more users who can log in as that partner.
 
 **User**: `id`, `name`, `role` (`OPERATOR`, `MANAGER` or `PARTNER`) and, for a partner user, `partnerId`. There is no login: the acting user is chosen in the UI and sent with each request, and the backend takes the role from that user. This simulates identity; it is not security.
 
-**AuditEvent**: an append-only log of every change to a ticket, so each change is stamped with what changed, who did it and when: `ticketId`, `action` (`CREATED`, `UPDATED`, `FILE_REPLACED`, `SENT`, `APPROVED`, `REJECTED`, …), `actorId`, `at`, `changes` (a list of `{ field, from, to }`) and an optional `comment`. A status change is one kind of event. The latest change is also stamped on the ticket (`updatedBy`, `updatedAt`).
+**AuditEvent**: an append-only log of every change to a ticket, so each change is stamped with what changed, who did it and when: `ticketId`, `action` (`CREATED`, `UPDATED`, `FILE_REPLACED`, `DELETED`, `SENT`, `ACKNOWLEDGED`, `RESULT_UPLOADED`, `DELIVERED`, `APPROVED` or `REJECTED`), `actorId`, `at`, `changes` (a list of `{ field, from, to }`) and an optional `comment`. A status change is one kind of event (`changes` then holds the status and the fields that came with it, e.g. `round` and `sentAt` for a send), and a rejection keeps its reason in `comment`. The latest change is also stamped on the ticket (`updatedBy`, `updatedAt`).
 
 Validation rules worth noting: a ticket needs at least one variant, and a variant at least one operation; a variant has at most one operation of each type; each operation is validated against its own schema (an `AOP` needs a pattern, a `RESIZE` needs a width and a height); and an `AOP` operation requires a `REFERENCE` file on the ticket. Which files a ticket needs follows from its operations.
 
@@ -195,13 +200,19 @@ A partner is a user too. A partner user logs in (by choosing a user in the UI), 
 |---|---|---|---|
 | See tickets | all | all | own only |
 | Create, edit and delete a ticket (while `PENDING`) | yes | | |
-| Send a ticket to its partner (`PENDING` → `SENT`) | yes | | |
+| Send a ticket to its partner (`PENDING` or `REJECTED` → `SENT`) | yes | | |
 | Acknowledge receipt (`SENT` → `IN_PROGRESS`) | | | yes, own |
 | Upload result images | | | yes, own |
 | Deliver (`IN_PROGRESS` → `COMPLETED`) | | | yes, own |
 | Approve or reject (`COMPLETED` → `APPROVED` / `REJECTED`) | | yes | |
 
 Delivering requires a result image for every variant and every view (front, back and style) in the current round. A rejected ticket shows the rejection reason to the partner, who corrects the work and delivers again.
+
+How the rules answer:
+
+- The role is checked first. An action the role may never do gives `403` (for example a Manager creating a ticket), whatever the ticket looks like.
+- A ticket a user may not see is reported as `404`, exactly like a ticket that does not exist, so a partner user cannot even tell that another partner's ticket exists. This holds for the ticket, its audit log, its files and result images, and every action on it.
+- Only after that is the status checked: a step in the wrong status gives `409`.
 
 ### Design decision: a ticket is approved as a whole
 
@@ -210,7 +221,7 @@ A ticket can contain several variants (Ticket 2 asks for three versions of the g
 What follows from that:
 
 - Status, partner receipt and approval all live on the **ticket**. Variants are the content of a ticket and have no status of their own.
-- **Reject** returns the whole ticket to the queue with a comment that says what must be corrected. The ticket can then be sent to the partner again, which starts a new `round`; the new delivery replaces the previous results, and the earlier rounds stay visible in the audit log.
+- **Reject** returns the whole ticket to the queue with a comment that says what must be corrected. The ticket can then be sent to the partner again, which starts a new `round`; the new delivery gets its own result images (the earlier rounds' images are kept, and the audit log shows what happened in each round). The reason stays on the ticket until it is approved, so the partner can see what to correct.
 - **Approve** sets the ticket's status to `APPROVED`. The **Approved Library** lists the partners' final, approved results: the result images of the latest round of every approved ticket, each referring back to its ticket (article number, reference number and a link). It is computed from the approved tickets, so nothing is copied.
 - Approving each variant separately would be a natural extension: the status fields would move from the ticket to the variant.
 
@@ -245,8 +256,8 @@ All endpoints live under `/api/v1`. There is no login: every request carries the
 | `GET /users` | The users to choose from in the UI | anyone |
 | `GET /colours` | The Pantone colour list | all |
 | `GET /patterns` | The pattern list | all |
-| `GET /partners` | Partners with counts per status and receipt information | Operator, Manager |
-| `GET /partners/:id` | One partner with its tickets and receipt status | Operator, Manager |
+| `GET /partners` | Every partner as `{ id, name, total, counts }`, where `counts` has the number of tickets per status (`SENT` are the tickets that wait for a receipt) | Operator, Manager |
+| `GET /partners/:id` | One partner as `{ id, name, counts, tickets }`; each ticket has `status`, `round`, `sentAt`, `receivedAt` and `completedAt`, which is the receipt status | Operator, Manager |
 
 ### Tickets
 
@@ -266,21 +277,21 @@ All endpoints live under `/api/v1`. There is no login: every request carries the
 
 | Method and path | Transition | Who |
 |---|---|---|
-| `POST /tickets/:id/send` | `PENDING` → `SENT` | Operator |
+| `POST /tickets/:id/send` | `PENDING` or `REJECTED` → `SENT`; starts the next round | Operator |
 | `POST /tickets/:id/acknowledge` | `SENT` → `IN_PROGRESS` | Partner, own tickets |
-| `PUT /tickets/:id/variants/:variantId/results/:slot` | upload one result image (`FRONT`, `BACK` or `STYLE`) | Partner, own tickets, `IN_PROGRESS` |
-| `POST /tickets/:id/deliver` | `IN_PROGRESS` → `COMPLETED` (needs a result for every variant and view) | Partner, own tickets |
+| `PUT /tickets/:id/variants/:variantId/results/:slot` | upload one result image (`FRONT`, `BACK` or `STYLE`); `multipart/form-data` with the file in the field `file` | Partner, own tickets, `IN_PROGRESS` |
+| `POST /tickets/:id/deliver` | `IN_PROGRESS` → `COMPLETED`. Without a result for every variant and view the answer is `422` with one message per missing image, e.g. `results.ticket-1-v2.BACK` | Partner, own tickets |
 | `POST /tickets/:id/approve` | `COMPLETED` → `APPROVED` | Manager |
-| `POST /tickets/:id/reject` | `COMPLETED` → `REJECTED`, body `{ "reason": "…" }` | Manager |
+| `POST /tickets/:id/reject` | `COMPLETED` → `REJECTED`, body `{ "reason": "…" }`; a missing reason gives `422` | Manager |
 
-A rejected ticket can be sent again, which starts a new round. The allowed transitions are enforced in the domain layer, not in the routes.
+Each action answers with the changed ticket. A rejected ticket can be sent again, which starts a new round. The allowed transitions are enforced in the domain layer (`domain/workflow.js`), not in the routes.
 
 ### Approved Library and dashboard
 
 | Method and path | What | Who |
 |---|---|---|
-| `GET /approved-photos` | The result images of the latest round of every approved ticket, grouped per variant, each referring back to its ticket (`ticketId`, `articleNo`, `reference`). Filters: `q`, `partnerId`, `operation` (e.g. `AOP`), `colourId`, `approvedFrom`, `approvedTo`, `page`, `pageSize`. | all, partner scoped |
-| `GET /dashboard/kpis` | Counts per status, e.g. pending and awaiting approval (`COMPLETED`) | all, partner scoped |
+| `GET /approved-photos` | The result images of the latest round of every approved ticket, one item per variant, newest approval first. Each item refers back to its ticket (`ticketId`, `articleNo`, `reference`, `partnerId`, `approvedAt`) and has the variant's `operations` and `notes` and its `images` (`id`, `slot`, `photoId`, `url`). Filters: `q`, `partnerId`, `operation` (e.g. `AOP`), `colourId`, `approvedFrom`, `approvedTo`, `page`, `pageSize`. | all, partner scoped |
+| `GET /dashboard/kpis` | `{ total, byStatus }` with the number of tickets per status (0 if none), e.g. pending = `PENDING` and awaiting approval = `COMPLETED` | all, partner scoped |
 | `GET /files/:id` | Streams an uploaded or result file, scoped like tickets | all, partner scoped |
 
 ### Conventions
@@ -298,12 +309,12 @@ The use cases depend on small interfaces; adapters implement them, and tests use
 
 | Port | Purpose |
 |---|---|
-| `TicketRepository` | `nextId()`, `list(filter)` (one page and the total, see *Filters on `GET /tickets`*), `get(id)`, `findByFileId(fileId)`, `create`, `update`, `delete` |
+| `TicketRepository` | `nextId()`, `list(filter)` (one page and the total, see *Filters on `GET /tickets`*), `get(id)`, `countByStatus({ partnerId })`, `findByFileId(fileId)` (a ticket file or a result image), `create`, `update`, `delete` |
 | `UserRepository`, `PartnerRepository` | `list()` and `get(id)` |
 | `CatalogRepository` | `list(kind)` and `exists(kind, id)` for colours and patterns (`kind` is `colour` or `pattern`) |
-| `ApprovedPhotoReader` | the read side of the Approved Library |
+| `ApprovedPhotoReader` | `list(filter)`: the read side of the Approved Library, computed from the approved tickets |
 | `FileStorage` | `save(key, buffer)`, `read(key)` (null if missing), `delete(key)`. Adapters: in memory (tests) and a folder on disk |
 | `AuditLog` | append and list audit events |
 | `Clock` | the current time, so tests can control it |
 
-`ApprovedPhotoReader` is added together with the Approved Library. A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).
+A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).
