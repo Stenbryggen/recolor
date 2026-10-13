@@ -34,7 +34,8 @@ The end-to-end tests drive the app in a real browser (Playwright). They start th
 
 ```bash
 npx playwright install chromium   # once, about 150 MB
-npm run test:e2e                  # add -- --headed to watch the browser
+npm run test:e2e                  # runs without a visible browser
+npm run test:e2e:headed           # same, but you can watch the browser
 ```
 
 See *Tests* for what they cover.
