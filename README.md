@@ -359,8 +359,21 @@ Each action answers with the changed ticket. A rejected ticket can be sent again
 - **Validation errors** return `422` with the errors per field, using the field path: `{ "errors": { "variants.1.operations.1.patternId": "A pattern is required for AOP" } }`.
 - **Other errors** return `{ "error": "message" }` with `400` (malformed request), `401` (unknown user), `403` (not allowed for this role), `404` (not found), `409` (not allowed in the current status), `413` (file too large) or `415` (unsupported file type).
 - **Everything that changes a ticket** writes an audit event with the acting user. A change that leaves the ticket as it was writes nothing. Deleting a ticket removes it and its files, but the audit log keeps a `DELETED` event.
-- **Uploaded files** must be JPEG or PNG images (the extension and the MIME type must agree) of at most 30 MB and not empty. A file in a field the API does not know gives `400`.
+- **Uploaded files** follow the rules in *Upload limits* below.
 - **Photo ID:** the photo ID of an uploaded file is its file name without extension. The API never shows where a file is stored; each file has a `url` (`/api/v1/files/:id`) instead.
+
+### Upload limits
+
+These rules apply to every upload: the four photos of a new ticket, a replaced photo and a result image.
+
+| Rule | Limit | Answer when broken |
+|---|---|---|
+| File type | JPEG or PNG. The extension (`.jpg`, `.jpeg`, `.png`) and the MIME type must agree. | `415` |
+| Size | At most **30 MB per file** (the largest photo in the case is about 13 MB) | `413` |
+| Empty file | Not allowed | `422` |
+| Number of files | At most one per slot: `front`, `back`, `style` and `reference` when a ticket is created, and one file per request elsewhere. A file in a field the API does not know is refused. | `400` |
+
+The create form tells the user the rule (JPEG or PNG, at most 30 MB), but the check is done by the API, whose message is shown in the form. Only the file type and size are checked, not the content of the image.
 
 ### Backend ports
 
@@ -391,6 +404,7 @@ The whole flow has also been run in a real browser against the running backend: 
 
 ## Known limits
 
+- Uploads are limited to JPEG and PNG, 30 MB per file (see *Upload limits*). A file is held in memory while it is uploaded, which is fine for this size but would call for streaming if the limit were raised a lot. The content of a file is not inspected.
 - Data is only in memory and is lost when the API stops. A database would be a new adapter for the same ports.
 - There is no login; the acting user is chosen in the UI and sent in `X-User-Id`. This simulates identity and is not security.
 - A pending ticket cannot be edited in the UI (the API can); delete it and create it again.
