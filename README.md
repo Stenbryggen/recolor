@@ -16,7 +16,7 @@ Nice to have: role-based views (Operator creates tickets, Manager approves) and 
 
 ## Getting started
 
-Requires Node.js 20 or newer.
+Requires Node.js 22.12 or newer (the test runner needs it).
 
 ```bash
 npm install     # installs both backend and frontend (npm workspaces)
@@ -37,7 +37,7 @@ frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue 4
 e2e/        End-to-end tests (Playwright)
 ```
 
-The four case tickets are created when the API starts, so the app is never empty. Their photos are read from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`); without it a small placeholder image is used. Data is kept in memory and starts fresh on every start; uploaded files go to `backend/uploads/`.
+The four case tickets are created when the API starts, so the app is never empty. Their photos are read from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`). Without it a small placeholder image is used. Data is kept in memory and starts fresh on every start; uploaded files go to `backend/uploads/`.
 
 ### Try it
 
