@@ -75,8 +75,8 @@ There is no login. The acting user is chosen in the UI and sent with every reque
 |---|---|---|
 | **Style** | The brief's form field "style" means the requested look. Our *Style view* is a photo. | The requested look is the **variant** (colour, optionally a pattern). "Style" is only used for the `_007` photo. |
 | **Reference** | *Reference number* (`5081887`) and *reference image* (the print file). | Always say which. In the data model the field is `reference` (the number) and the slot is `REFERENCE` (the image). |
-| **Queue** | The *ticket queue* the users see, and the technical *job queue* that simulates the partner. | "Queue" alone means the ticket queue. The technical one is always called the **job queue**. |
-| **Job** | A *queue job* in the job queue. | "Job" is only used for the job queue's work items, never for a ticket. |
+| **Queue** | The *ticket queue* the users see. The project has no technical queue: the partner is simulated by partner users who work in the app. | "Queue" alone always means the ticket queue. If a technical queue is added later (for example to simulate the partner automatically), it is called the **job queue**. |
+| **Job** | A work item in a technical job queue. The project has none, so the word is not used in the code. | Never used for a ticket. Reserved for the work items of a job queue, if one is added. |
 | **Version** | A variant, a round, or an API version. | Say **variant** for a version of the garment, **round** for a delivery cycle, and **v1** only for the API. |
 
 ## Using the language
