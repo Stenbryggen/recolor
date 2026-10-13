@@ -20,6 +20,8 @@ const userStore = useUserStore();
 
 const operationOptions = Object.entries(OPERATION_LABEL).map(([value, label]) => ({ value, label }));
 
+const fields = { q: 'text', partnerId: 'text', operation: 'text', colourId: 'text', approvedFrom: 'date', approvedTo: 'date' };
+
 const emptyFilters = () => ({ q: '', partnerId: null, operation: null, colourId: null, approvedFrom: null, approvedTo: null });
 
 const toQuery = (filters) => ({
@@ -32,6 +34,7 @@ const toQuery = (filters) => ({
 });
 
 const { filters, paging, items: photos, total, loading, error, applyFilters, clearFilters, onPage } = useFilteredList({
+  fields,
   emptyFilters,
   toQuery,
   fetchPage: listApprovedPhotos,

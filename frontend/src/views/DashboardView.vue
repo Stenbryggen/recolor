@@ -38,7 +38,7 @@ onMounted(async () => {
     <RouterLink
       v-for="status in STATUSES"
       :key="status"
-      :to="{ name: 'queue', query: { status } }"
+      :to="{ name: 'queue', query: { statuses: status } }"
       class="kpi"
       :style="{ '--kpi': COLOUR[status] }"
     >

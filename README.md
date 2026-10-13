@@ -283,13 +283,14 @@ frontend/src/
   ticketForm.js      the new-ticket form: the request it sends and where the errors belong
   describe.js        short texts for operations, and the result images of the latest round
   dates.js           start and end of a day, for the date filters
+  urlState.js        how filters, page and sorting are written to and read from the URL
 frontend/tests/      vitest: the api client, the rules for buttons, the form request, one component
 ```
 
 | Page | Who | What |
 |---|---|---|
 | **Dashboard** | all | The KPIs: a tile per status (Completed is also called *awaiting approval*); a tile opens the Queue with that status as filter. A partner user sees the numbers of its own tickets. |
-| **Queue** | all | The ticket queue: search, filters on status, priority, partner and created date, sorting and paging (all done by the API). A row opens the ticket. |
+| **Queue** | all | The ticket queue: search, filters on status, priority, partner and created date, sorting and paging (all done by the API). A row opens the ticket. The filters, the sorting and the page are kept in the URL (see below). |
 | **New ticket** | Operator | The create form: ticket fields, one or more variants (a colour and an **AOP** checkbox that adds a pattern), and the four photos. The reference image is only asked for when a variant has AOP. The errors of the API (`422`) are shown at their fields. |
 | **Ticket** | all | Photos, variants, guideline, receipt times, result images per round, and the audit log. The buttons follow the user and the status: send / delete (Operator), confirm receipt / upload result images / deliver (Partner user), approve / reject (Manager). Approving shows the clipping-path checklist; rejecting asks for the reason. |
 | **Approved Library** | all | The approved results per variant, with filters (search, partner, operation, colour, approval date). A partner user sees its own. |
@@ -298,6 +299,7 @@ frontend/tests/      vitest: the api client, the rules for buttons, the form req
 Things worth knowing:
 
 - **Acting user.** The user picker in the top bar chooses who acts (it is remembered in the browser). The menu only shows the pages that user may open, and every request sends `X-User-Id`. The buttons are only a convenience; the backend enforces the rules.
+- **Links keep the view.** The Queue and the Approved Library write their filters, sorting and page in the URL, for example `/queue?statuses=SENT,IN_PROGRESS&priority=HIGH&sort=priority&order=asc`. Send the link and the receiver sees the same list (as the user they are acting as). Only what differs from the defaults is written. The dashboard tiles are such links.
 - **Photos.** An `<img>` cannot send the `X-User-Id` header, so `AuthImage` fetches the file with the header and shows it from an object URL. A click shows the photo large.
 - **Editing a ticket** (`PATCH`, replacing a photo) is in the API but has no page: a pending ticket that is wrong is deleted and created again.
 - **The demo shortcut.** On an *In progress* ticket, a partner user can use *Fill with placeholder images (demo)*, which uploads the ticket's own front, back and style photo as the results.

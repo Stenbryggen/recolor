@@ -7,7 +7,7 @@ import InputText from 'primevue/inputtext';
 import Message from 'primevue/message';
 import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
-import { useRoute, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
 import { listTickets } from '../api/index.js';
 import PriorityTag from '../components/PriorityTag.vue';
 import StatusTag from '../components/StatusTag.vue';
@@ -17,7 +17,6 @@ import { useReferenceStore } from '../stores/reference.js';
 import { useUserStore } from '../stores/user.js';
 import { formatDateTime, PRIORITY_LABEL, STATUS_LABEL } from '../vocabulary.js';
 
-const route = useRoute();
 const router = useRouter();
 const referenceStore = useReferenceStore();
 const userStore = useUserStore();
@@ -25,9 +24,11 @@ const userStore = useUserStore();
 const statusOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }));
 const priorityOptions = Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label }));
 
+// How the filters are written in the URL, for example /queue?statuses=SENT,IN_PROGRESS&priority=HIGH
+const fields = { statuses: 'list', priority: 'text', partnerId: 'text', q: 'text', createdFrom: 'date', createdTo: 'date' };
+
 const emptyFilters = () => ({
-  // The dashboard links here with ?status=...
-  statuses: route.query.status ? String(route.query.status).split(',') : [],
+  statuses: [],
   priority: null,
   partnerId: null,
   q: '',
@@ -45,6 +46,7 @@ const toQuery = (filters) => ({
 });
 
 const { filters, paging, items: tickets, total, loading, error, applyFilters, clearFilters, onPage, onSort } = useFilteredList({
+  fields,
   emptyFilters,
   toQuery,
   fetchPage: listTickets,
@@ -96,6 +98,7 @@ const open = (event) => router.push({ name: 'ticket', params: { id: event.data.i
       lazy
       paginator
       :rows="paging.pageSize"
+      :first="(paging.page - 1) * paging.pageSize"
       :rows-per-page-options="[10, 25, 50]"
       :total-records="total"
       :loading="loading"
