@@ -378,6 +378,8 @@ A ticket gets its id from `TicketRepository.nextId()`, so there is no separate i
 
 `npm test` runs the vitest tests of both parts.
 
+On GitHub, the workflow in `.github/workflows/ci.yml` runs `npm ci`, `npm test` and `npm run build` on every push and pull request.
+
 - **Backend:** the domain (validation, each operation, the workflow, permissions), the use cases (with in-memory adapters and a fixed clock), the adapters, the seed data, and the whole API through supertest (status codes, roles, partner scoping, uploads).
 - **Frontend:** the API client, which buttons each role sees, the request the create form sends, the texts for operations, and the create form as a component.
 
