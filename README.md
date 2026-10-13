@@ -27,12 +27,14 @@ The Vite dev server proxies `/api` to the Express backend, so the frontend only 
 
 ```bash
 npm test        # runs the backend and frontend tests (vitest)
+npm run test:e2e # drives the app in a real browser (Playwright), see *Tests*
 npm run build   # builds the frontend
 ```
 
 ```
 backend/    Express API (ES modules)
 frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue 4
+e2e/        End-to-end tests (Playwright)
 ```
 
 The four case tickets are created when the API starts, so the app is never empty. Their photos are read from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`); without it a small placeholder image is used. Data is kept in memory and starts fresh on every start; uploaded files go to `backend/uploads/`.
@@ -395,12 +397,12 @@ A ticket gets its id from `TicketRepository.nextId()`, so there is no separate i
 
 `npm test` runs the vitest tests of both parts.
 
-On GitHub, the workflow in `.github/workflows/ci.yml` runs `npm ci`, `npm test` and `npm run build` on every push and pull request.
+On GitHub, the workflow in `.github/workflows/ci.yml` runs `npm ci`, `npm test`, `npm run build` and the end-to-end tests on every push and pull request.
 
 - **Backend:** the domain (validation, each operation, the workflow, permissions), the use cases (with in-memory adapters and a fixed clock), the adapters, the seed data, and the whole API through supertest (status codes, roles, partner scoping, uploads).
 - **Frontend:** the API client, which buttons each role sees, the request the create form sends, the texts for operations, and the create form as a component.
 
-The whole flow has also been run in a real browser against the running backend: create, send, receipt, upload results, deliver, reject, send again, approve, and the Approved Library, with `404` for another partner's ticket.
+- **End to end** (`npm run test:e2e`, in `e2e/`): [Playwright](https://playwright.dev) starts the API and the web app and drives them in a real browser. It runs the whole flow (create a ticket with AOP, send, receipt, upload results, deliver, reject with a reason, send again for round 2, approve after the clipping-path check, find the results in the Approved Library), and checks that the menu follows the role, that a partner user only sees its own tickets (`404` for another's), and that a link to the Queue gives the receiver the same view. The first time, install a browser with `npx playwright install chromium`. The tests share one API with its data in memory, so they run one after another. An API and a web app that already run (ports 3000 and 5173) are reused.
 
 ## Known limits
 

@@ -13,3 +13,7 @@ uploads/
 .env
 .env.*
 .DS_Store
+
+# End-to-end test output
+test-results/
+playwright-report/
