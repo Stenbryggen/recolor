@@ -27,9 +27,17 @@ The Vite dev server proxies `/api` to the Express backend, so the frontend only 
 
 ```bash
 npm test        # runs the backend and frontend tests (vitest)
-npm run test:e2e # drives the app in a real browser (Playwright), see *Tests*
 npm run build   # builds the frontend
 ```
+
+The end-to-end tests drive the app in a real browser (Playwright). They start the API and the web app themselves, so stop `npm run dev` first or let them reuse it. The first time, install the browser:
+
+```bash
+npx playwright install chromium   # once, about 150 MB
+npm run test:e2e                  # add -- --headed to watch the browser
+```
+
+See *Tests* for what they cover.
 
 ```
 backend/    Express API (ES modules)
