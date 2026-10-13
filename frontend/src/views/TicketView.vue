@@ -16,7 +16,7 @@ import AuthImage from '../components/AuthImage.vue';
 import PriorityTag from '../components/PriorityTag.vue';
 import ResultsTable from '../components/ResultsTable.vue';
 import StatusTag from '../components/StatusTag.vue';
-import { describeMissingResults, describeOperation } from '../describe.js';
+import { describeMissingResults, describeOperations } from '../describe.js';
 import { useReferenceStore } from '../stores/reference.js';
 import { useUserStore } from '../stores/user.js';
 import { availableActions } from '../ticketActions.js';
@@ -38,7 +38,7 @@ const actions = computed(() => (ticket.value ? availableActions(userStore.curren
 const earlierRounds = computed(() =>
   ticket.value ? [...new Set(ticket.value.results.map((r) => r.round))].filter((r) => r < ticket.value.round).sort((a, b) => b - a) : [],
 );
-const describe = (variant) => variant.operations.map((operation) => describeOperation(operation, referenceStore)).join(' + ');
+const describe = (variant) => describeOperations(variant.operations, referenceStore);
 const actorName = (id) => userStore.users.find((user) => user.id === id)?.name ?? id;
 
 async function load() {

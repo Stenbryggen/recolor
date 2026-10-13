@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentResult, describeMissingResults, describeOperation } from '../src/describe.js';
+import { currentResult, describeMissingResults, describeOperation, describeOperations } from '../src/describe.js';
 
 const lists = {
   colours: [{ id: 'night-sky', pantoneName: 'Night Sky' }],
@@ -45,5 +45,15 @@ describe('describeMissingResults', () => {
     expect(describeMissingResults(errors, ticket)).toBe(
       'Result images are missing for variant 1 (Front) and variant 2 (Back, Style).',
     );
+  });
+});
+
+describe('describeOperations', () => {
+  it('joins the operations of a variant', () => {
+    const operations = [
+      { type: 'RECOLOUR', colourId: 'night-sky' },
+      { type: 'AOP', patternId: 'block-libre' },
+    ];
+    expect(describeOperations(operations, lists)).toBe('Night Sky + AOP Block Libre');
   });
 });

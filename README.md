@@ -278,9 +278,11 @@ frontend/src/
   stores/       user.js (who is acting) and reference.js (colours, patterns, partners)
   views/        one file per page
   components/   StatusTag, PriorityTag, AuthImage, ResultsTable, AuditLog, UserPicker
+  composables/  useFilteredList.js: the filters, paging and loading that Queue and Approved Library share
   ticketActions.js   which buttons a user sees on a ticket
   ticketForm.js      the new-ticket form: the request it sends and where the errors belong
   describe.js        short texts for operations, and the result images of the latest round
+  dates.js           start and end of a day, for the date filters
 frontend/tests/      vitest: the api client, the rules for buttons, the form request, one component
 ```
 

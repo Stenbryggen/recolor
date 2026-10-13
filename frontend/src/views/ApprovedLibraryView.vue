@@ -5,11 +5,12 @@ import InputText from 'primevue/inputtext';
 import Message from 'primevue/message';
 import Paginator from 'primevue/paginator';
 import Select from 'primevue/select';
-import { onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { listApprovedPhotos } from '../api/index.js';
 import AuthImage from '../components/AuthImage.vue';
-import { describeOperation } from '../describe.js';
+import { useFilteredList } from '../composables/useFilteredList.js';
+import { endOfDay, startOfDay } from '../dates.js';
+import { describeOperations } from '../describe.js';
 import { useReferenceStore } from '../stores/reference.js';
 import { useUserStore } from '../stores/user.js';
 import { formatDate, OPERATION_LABEL, SLOT_LABEL } from '../vocabulary.js';
@@ -18,59 +19,26 @@ const referenceStore = useReferenceStore();
 const userStore = useUserStore();
 
 const operationOptions = Object.entries(OPERATION_LABEL).map(([value, label]) => ({ value, label }));
-const filters = reactive({ q: '', partnerId: null, operation: null, colourId: null, approvedFrom: null, approvedTo: null });
-const paging = reactive({ page: 1, pageSize: 12 });
 
-const photos = ref([]);
-const total = ref(0);
-const error = ref(null);
-const loading = ref(false);
+const emptyFilters = () => ({ q: '', partnerId: null, operation: null, colourId: null, approvedFrom: null, approvedTo: null });
 
-const startOfDay = (date) => (date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString() : undefined);
-const endOfDay = (date) =>
-  date ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString() : undefined;
+const toQuery = (filters) => ({
+  q: filters.q.trim(),
+  partnerId: filters.partnerId,
+  operation: filters.operation,
+  colourId: filters.colourId,
+  approvedFrom: startOfDay(filters.approvedFrom),
+  approvedTo: endOfDay(filters.approvedTo),
+});
 
-async function load() {
-  loading.value = true;
-  try {
-    const result = await listApprovedPhotos({
-      q: filters.q.trim(),
-      partnerId: filters.partnerId,
-      operation: filters.operation,
-      colourId: filters.colourId,
-      approvedFrom: startOfDay(filters.approvedFrom),
-      approvedTo: endOfDay(filters.approvedTo),
-      ...paging,
-    });
-    photos.value = result.items;
-    total.value = result.total;
-    error.value = null;
-  } catch (e) {
-    error.value = e.message;
-  } finally {
-    loading.value = false;
-  }
-}
+const { filters, paging, items: photos, total, loading, error, applyFilters, clearFilters, onPage } = useFilteredList({
+  emptyFilters,
+  toQuery,
+  fetchPage: listApprovedPhotos,
+  paging: { pageSize: 12 },
+});
 
-function applyFilters() {
-  paging.page = 1;
-  load();
-}
-
-function clearFilters() {
-  Object.assign(filters, { q: '', partnerId: null, operation: null, colourId: null, approvedFrom: null, approvedTo: null });
-  applyFilters();
-}
-
-function onPage(event) {
-  paging.page = event.page + 1;
-  paging.pageSize = event.rows;
-  load();
-}
-
-const describe = (item) => item.operations.map((operation) => describeOperation(operation, referenceStore)).join(' + ');
-
-onMounted(load);
+const describe = (item) => describeOperations(item.operations, referenceStore);
 </script>
 
 <template>

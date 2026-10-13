@@ -7,11 +7,12 @@ import InputText from 'primevue/inputtext';
 import Message from 'primevue/message';
 import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
-import { onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listTickets } from '../api/index.js';
 import PriorityTag from '../components/PriorityTag.vue';
 import StatusTag from '../components/StatusTag.vue';
+import { useFilteredList } from '../composables/useFilteredList.js';
+import { endOfDay, startOfDay } from '../dates.js';
 import { useReferenceStore } from '../stores/reference.js';
 import { useUserStore } from '../stores/user.js';
 import { formatDateTime, PRIORITY_LABEL, STATUS_LABEL } from '../vocabulary.js';
@@ -24,8 +25,8 @@ const userStore = useUserStore();
 const statusOptions = Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }));
 const priorityOptions = Object.entries(PRIORITY_LABEL).map(([value, label]) => ({ value, label }));
 
-// The dashboard links here with ?status=...
-const filters = reactive({
+const emptyFilters = () => ({
+  // The dashboard links here with ?status=...
   statuses: route.query.status ? String(route.query.status).split(',') : [],
   priority: null,
   partnerId: null,
@@ -34,65 +35,23 @@ const filters = reactive({
   createdTo: null,
 });
 
-const tickets = ref([]);
-const total = ref(0);
-const loading = ref(false);
-const error = ref(null);
-const paging = reactive({ page: 1, pageSize: 10, sort: 'createdAt', order: 'desc' });
+const toQuery = (filters) => ({
+  status: filters.statuses.join(','),
+  priority: filters.priority,
+  partnerId: filters.partnerId,
+  q: filters.q.trim(),
+  createdFrom: startOfDay(filters.createdFrom),
+  createdTo: endOfDay(filters.createdTo),
+});
 
-// A date picker gives the start of a day; the end of the range is the end of that day.
-const startOfDay = (date) => (date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()).toISOString() : undefined);
-const endOfDay = (date) =>
-  date ? new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999).toISOString() : undefined;
-
-async function load() {
-  loading.value = true;
-  try {
-    const result = await listTickets({
-      status: filters.statuses.join(','),
-      priority: filters.priority,
-      partnerId: filters.partnerId,
-      q: filters.q.trim(),
-      createdFrom: startOfDay(filters.createdFrom),
-      createdTo: endOfDay(filters.createdTo),
-      ...paging,
-    });
-    tickets.value = result.items;
-    total.value = result.total;
-    error.value = null;
-  } catch (e) {
-    error.value = e.message;
-  } finally {
-    loading.value = false;
-  }
-}
-
-function applyFilters() {
-  paging.page = 1;
-  load();
-}
-
-function clearFilters() {
-  Object.assign(filters, { statuses: [], priority: null, partnerId: null, q: '', createdFrom: null, createdTo: null });
-  applyFilters();
-}
-
-function onPage(event) {
-  paging.page = event.page + 1;
-  paging.pageSize = event.rows;
-  load();
-}
-
-function onSort(event) {
-  paging.sort = event.sortField;
-  paging.order = event.sortOrder === 1 ? 'asc' : 'desc';
-  paging.page = 1;
-  load();
-}
+const { filters, paging, items: tickets, total, loading, error, applyFilters, clearFilters, onPage, onSort } = useFilteredList({
+  emptyFilters,
+  toQuery,
+  fetchPage: listTickets,
+  paging: { pageSize: 10, sort: 'createdAt', order: 'desc' },
+});
 
 const open = (event) => router.push({ name: 'ticket', params: { id: event.data.id } });
-
-onMounted(load);
 </script>
 
 <template>

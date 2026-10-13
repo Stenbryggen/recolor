@@ -1,6 +1,6 @@
 <script setup>
 import AuthImage from './AuthImage.vue';
-import { describeOperation } from '../describe.js';
+import { describeOperations } from '../describe.js';
 import { useReferenceStore } from '../stores/reference.js';
 import { RESULT_SLOTS, SLOT_LABEL } from '../vocabulary.js';
 
@@ -18,7 +18,7 @@ const referenceStore = useReferenceStore();
 const resultFor = (variantId, slot) =>
   props.ticket.results.find((r) => r.variantId === variantId && r.slot === slot && r.round === props.round);
 
-const describe = (variant) => variant.operations.map((operation) => describeOperation(operation, referenceStore)).join(' + ');
+const describe = (variant) => describeOperations(variant.operations, referenceStore);
 
 function chosen(variantId, slot, event) {
   const file = event.target.files[0];

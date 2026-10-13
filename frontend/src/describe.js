@@ -13,6 +13,10 @@ export function describeOperation(operation, { colours = [], patterns = [] } = {
   return operation.type;
 }
 
+// A variant's operations as one text, e.g. "Night Sky + AOP Block Libre".
+export const describeOperations = (operations, lists) =>
+  operations.map((operation) => describeOperation(operation, lists)).join(' + ');
+
 // The result images of a ticket's latest round, for one variant and one view.
 export function currentResult(ticket, variantId, slot) {
   return ticket.results.find((r) => r.variantId === variantId && r.slot === slot && r.round === ticket.round) ?? null;
