@@ -13,7 +13,9 @@ import './style.css';
 createApp(App)
   .use(createPinia())
   .use(router)
-  .use(PrimeVue, { theme: { preset: Aura } })
+  // The app has a light design only. Without this, PrimeVue follows the dark mode of the
+  // operating system and the inputs turn black on the light page.
+  .use(PrimeVue, { theme: { preset: Aura, options: { darkModeSelector: false } } })
   .use(ToastService)
   .use(ConfirmationService)
   .mount('#app');
