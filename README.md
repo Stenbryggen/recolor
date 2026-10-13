@@ -30,10 +30,9 @@ npm test        # runs the backend and frontend tests (vitest)
 npm run build   # builds the frontend
 ```
 
-The end-to-end tests drive the app in a real browser (Playwright). They start the API and the web app themselves, so stop `npm run dev` first or let them reuse it. The first time, install the browser:
+The end-to-end tests drive the app in a real browser (Playwright). They start the API and the web app themselves, so stop `npm run dev` first or let them reuse it. The first run downloads Chromium (about 150 MB) automatically.
 
 ```bash
-npx playwright install chromium   # once, about 150 MB
 npm run test:e2e                  # runs without a visible browser
 npm run test:e2e:headed           # same, but you can watch the browser
 ```
@@ -411,7 +410,7 @@ On GitHub, the workflow in `.github/workflows/ci.yml` runs `npm ci`, `npm test`,
 - **Backend:** the domain (validation, each operation, the workflow, permissions), the use cases (with in-memory adapters and a fixed clock), the adapters, the seed data, and the whole API through supertest (status codes, roles, partner scoping, uploads).
 - **Frontend:** the API client, which buttons each role sees, the request the create form sends, the texts for operations, and the create form as a component.
 
-- **End to end** (`npm run test:e2e`, in `e2e/`): [Playwright](https://playwright.dev) starts the API and the web app and drives them in a real browser. It runs the whole flow (create a ticket with AOP, send, receipt, upload results, deliver, reject with a reason, send again for round 2, approve after the clipping-path check, find the results in the Approved Library), and checks that the menu follows the role, that a partner user only sees its own tickets (`404` for another's), and that a link to the Queue gives the receiver the same view. The first time, install a browser with `npx playwright install chromium`. The tests share one API with its data in memory, so they run one after another. An API and a web app that already run (ports 3000 and 5173) are reused.
+- **End to end** (`npm run test:e2e`, in `e2e/`): [Playwright](https://playwright.dev) starts the API and the web app and drives them in a real browser. It runs the whole flow (create a ticket with AOP, send, receipt, upload results, deliver, reject with a reason, send again for round 2, approve after the clipping-path check, find the results in the Approved Library), and checks that the menu follows the role, that a partner user only sees its own tickets (`404` for another's), and that a link to the Queue gives the receiver the same view. Chromium is downloaded automatically before the run (`pretest` in `e2e/package.json`). The tests share one API with its data in memory, so they run one after another. An API and a web app that already run (ports 3000 and 5173) are reused.
 
 ## Known limits
 
