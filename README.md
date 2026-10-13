@@ -35,6 +35,29 @@ backend/    Express API (ES modules)
 frontend/   Vue 3 + Vite, Vue Router, Pinia, PrimeVue 4
 ```
 
+The four case tickets are created when the API starts, so the app is never empty. Their photos are read from the `recolour-case` folder next to this project (or the folder in `RECOLOUR_CASE_DIR`); without it a small placeholder image is used. Data is kept in memory and starts fresh on every start; uploaded files go to `backend/uploads/`.
+
+### Try it
+
+There is no login: choose who is acting in the top bar. Seed users: Maria Hansen and Thomas Nielsen (Operator), Jens Andersen (Manager), Anh Tran and Sofie Larsen (Pixelworks), Ravi Patel (ClipMaster).
+
+1. **Maria** (Operator): open *New ticket*, or open one of the four seeded tickets, and **Send to partner**.
+2. **Anh Tran** (Pixelworks): open the ticket, **Confirm receipt**, upload a front, back and style image for every variant (or use *Fill with placeholder images (demo)*), then **Deliver**.
+3. **Jens** (Manager): **Reject** with a reason, or **Approve** after the clipping-path check.
+4. After a rejection, Maria sends the ticket again (round 2) and Anh Tran delivers again.
+5. Look at the *Approved Library*, the *Partner Overview* and the *Dashboard*. As **Ravi Patel**, a Pixelworks ticket does not exist (`404`).
+
+### How the assignment is covered
+
+| Brief | Where |
+|---|---|
+| Ticket creation (photo ID, style, priority, partner) | *New ticket*: photos are uploaded and the photo ID is taken from the file name; the requested look is the variants (colour, optionally AOP) |
+| Ticket queue with status and filters | *Queue*: status, priority, partner, search and created date, with sorting and paging |
+| Partner integration, receipt status | A partner user acknowledges, uploads results and delivers; *Partner Overview* shows sent, receipt and completed per ticket |
+| Approval and storage; reject returns to the queue | Approve makes the results appear in the *Approved Library*; reject returns the ticket with a reason, and it can be sent again |
+| Navigation | Menu with Dashboard, Queue, New ticket, Approved Library and Partner Overview |
+| Nice to have: roles, KPI dashboard | Operator, Manager and Partner user, enforced by the API; *Dashboard* with a tile per status |
+
 ### Backend structure
 
 The backend follows ports and adapters. Dependencies point inwards: adapters depend on the application layer, which depends on the domain, never the other way round.
@@ -48,7 +71,7 @@ backend/src/
     workflow.js      The status changes (send, acknowledge, deliver, approve, reject) and result images
     permissions.js   Who may do what, and who may see which ticket
     constants.js     Status, priority, role and slot names
-    errors.js        ValidationError (errors per field) and NotFoundError
+    errors.js        The error classes that the HTTP layer turns into status codes (422, 403, 404, 409, ...)
   application/     One file per use case (createTicket, updateTicket, listTickets, workflow.js for the five
                    workflow actions, ...), the rules for uploads and for the queries, and ports.js, which
                    describes the ports (see *Backend ports*)
@@ -350,3 +373,24 @@ The use cases depend on small interfaces; adapters implement them, and tests use
 | `Clock` | the current time, so tests can control it |
 
 A ticket gets its id from `TicketRepository.nextId()`, so there is no separate id generator. Ticket ids look like `ticket-1`, and variant and file ids start with the ticket id (`ticket-1-v1`, `ticket-1-front`).
+
+## Tests
+
+`npm test` runs the vitest tests of both parts.
+
+- **Backend:** the domain (validation, each operation, the workflow, permissions), the use cases (with in-memory adapters and a fixed clock), the adapters, the seed data, and the whole API through supertest (status codes, roles, partner scoping, uploads).
+- **Frontend:** the API client, which buttons each role sees, the request the create form sends, the texts for operations, and the create form as a component.
+
+The whole flow has also been run in a real browser against the running backend: create, send, receipt, upload results, deliver, reject, send again, approve, and the Approved Library, with `404` for another partner's ticket.
+
+## Known limits
+
+- Data is only in memory and is lost when the API stops. A database would be a new adapter for the same ports.
+- There is no login; the acting user is chosen in the UI and sent in `X-User-Id`. This simulates identity and is not security.
+- A pending ticket cannot be edited in the UI (the API can); delete it and create it again.
+- `RESIZE` exists as an operation in the API and the registry, but the form only offers colour and AOP, as the mock data does.
+- Approval is per ticket, not per variant (see *Design decision: a ticket is approved as a whole*).
+
+## Use of Claude Code
+
+This project was built with **Claude Code** (Anthropic), working from this README and the glossary as the specification. The work was done in five steps, one at a time: the backend structure, the ticket API, the workflow with roles and partner scoping, the frontend, and this documentation. The author gave the architecture (ports and adapters), the rules and the design decisions, and set the working method: after each step the tests and the build are run and the step is committed. The code, the tests and the documentation were written by Claude Code, which also ran the app in a browser to check it. The commits carry a `Co-Authored-By` line for this reason.
